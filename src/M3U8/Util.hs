@@ -8,7 +8,8 @@ module M3U8.Util
         contains,
         toString,
         parseStreamInfo,
-        removeColons
+        removeColons,
+        tuplify2
     ) where
 
 import System.IO (hFlush, stdout)
@@ -33,6 +34,9 @@ printList strs = putStrLn $ intercalate "\n" strs
 
 contains :: String -> String -> Bool
 contains s1 s2 = Txt.isInfixOf (Txt.pack s1) (Txt.pack s2)
+
+tuplify2 :: [a] -> (a,a)
+tuplify2 [x,y] = (x,y)
 
 removeColons :: String -> String
 removeColons str = filter (\c -> c /= ':') str

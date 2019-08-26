@@ -84,6 +84,7 @@ saveSegments urls = displayConsoleRegions $ do
     return files
 
 data DecryptMode = Off | ZeroIV | SequentialIV
+    deriving (Show, Eq)
 
 appendAndDecrypt :: String -> DecryptMode -> Maybe B.ByteString -> ProgressBar -> (Int, String) -> IO ()
 appendAndDecrypt output dm key pg (i, file) = do

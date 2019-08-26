@@ -11,8 +11,8 @@ extra-source-files:
 - ChangeLog.md
 
 # Metadata used when publishing your package
-# synopsis:            Short description of your package
-# category:            Web
+synopsis:            Haskell library for m3u8 stream parsing, downloading, and decrypting.
+category:            Web
 
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
@@ -32,6 +32,8 @@ dependencies:
 - SafeSemaphore
 - SimpleAES
 - hxt-unicode
+- containers
+- split
 
 library:
   source-dirs: src
