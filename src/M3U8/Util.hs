@@ -20,6 +20,7 @@ import Text.Regex.Posix
 import qualified Data.Text as Txt
 import qualified Data.ByteString.Lazy as B
 import qualified Data.Traversable as T
+import qualified Data.Map.Strict as Map
 import Control.Concurrent.Async
 import Control.Concurrent.MSem
 import Data.String.Unicode
@@ -37,6 +38,11 @@ contains s1 s2 = Txt.isInfixOf (Txt.pack s1) (Txt.pack s2)
 
 tuplify2 :: [a] -> (a,a)
 tuplify2 [x,y] = (x,y)
+
+strOrEmpty :: String -> Map.Map a String -> String
+strOrEmpty key m = case Map.lookup key m of
+                        Just val -> val
+                        Nothing -> ""
 
 removeColons :: String -> String
 removeColons str = filter (\c -> c /= ':') str
