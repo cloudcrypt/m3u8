@@ -19,12 +19,8 @@ data Stream = Stream { getStreamMeta :: Map.Map String String
                      , getStreamType :: StreamType } deriving (Eq)
 
 instance Show Stream where
-    show (Stream s url Video) = "Video Stream: "++(s Map.! "RESOLUTION")++(case Map.member "AUDIO" s of
-                                                                                    True -> ", "++(s Map.! "AUDIO")
-                                                                                    False -> "")
-    show (Stream s url Audio) = "Audio Stream: "++(case Map.member "AUDIO" s of
-                                                        True -> s Map.! "AUDIO"
-                                                        False -> url)
+    show (Stream s url Video) = "Video Stream: "++(intercalate ", " $ filter (not . null) $ map (valOrAlt s "") ["RESOLUTION","AUDIO"])
+    show (Stream s url Audio) = "Audio Stream: "++(valOrAlt s url "AUDIO")
 
 data StreamType = Video | Audio
         deriving (Eq, Show)
