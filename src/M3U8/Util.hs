@@ -9,7 +9,10 @@ module M3U8.Util
         toString,
         parseStreamInfo,
         removeColons,
-        tuplify2
+        tuplify2,
+        valOrAlt,
+        splitAtFirst,
+        stripLR
     ) where
 
 import System.IO (hFlush, stdout)
@@ -39,10 +42,18 @@ contains s1 s2 = Txt.isInfixOf (Txt.pack s1) (Txt.pack s2)
 tuplify2 :: [a] -> (a,a)
 tuplify2 [x,y] = (x,y)
 
-valOrAlt :: Map.Map a b -> b -> a -> b
+valOrAlt :: Ord a => Map.Map a b -> b -> a -> b
 valOrAlt m alt key = case Map.lookup key m of
                         Just val -> val
                         Nothing -> alt
+
+splitAtFirst :: Eq a => a -> [a] -> ([a], [a])
+splitAtFirst x = fmap (drop 1) . break (x ==)
+
+stripLR :: Char -> String -> String
+stripLR c str = case head str == last str && head str == c of
+    True -> tail $ init str
+    False -> str
 
 removeColons :: String -> String
 removeColons str = filter (\c -> c /= ':') str

@@ -9,6 +9,7 @@ module M3U8
 
 import Text.Regex.Posix
 import qualified Data.Map.Strict as Map
+import Data.List (intercalate)
 import Data.List.Split
 import Network.HTTP.Conduit (simpleHttp)
 
@@ -40,9 +41,9 @@ isStreamLine :: String -> Bool
 isStreamLine str = take 18 str == "#EXT-X-STREAM-INF:"
 
 parseMeta :: String -> Map.Map String String
-parseMeta str = Map.fromList $ map (tuplify2 . splitOn "=" . init) matches
+parseMeta str = Map.fromList $ map (\(k, v) -> (k, stripLR '"' v)) $ map (tuplify2 . splitOn "=" . init) matches
     where
-        matches = getAllTextMatches ((drop 18 (str++",")) =~ "[^,]+=(([^,\"]+)|(\"[^\"]+\"))," :: AllTextMatches [] String)
+        matches = getAllTextMatches ((snd $ splitAtFirst ':' (str++",")) =~ "[^,]+=(([^,\"]+)|(\"[^\"]+\"))," :: AllTextMatches [] String)
 
 streamsFromStr :: String -> String -> [Stream]
 streamsFromStr manifestStr url = map toStream $ zip metas urls 
@@ -63,9 +64,11 @@ segmentUrlsFromStr segmentsStr segmentsUrl = (urls, keyUrl)
     where
         segmentsLines = lines segmentsStr
         urls = map (fixUrl (baseUrl segmentsUrl)) $ filter (\x -> head x /= '#') segmentsLines
-        keyUrl = case filter (\x -> take 25 x == "#EXT-X-KEY:METHOD=AES-128") $ lines segmentsStr of
+        keyUrl = case map parseMeta $ filter ((==) "#EXT-X-KEY:" . take 11) $ lines segmentsStr of
             [] -> Nothing
-            (x:_) -> Just $ fixUrl (baseUrl segmentsUrl) $ drop 5 $ init $ (x =~ ("URI=\"[^[:space:]]+\"" :: String) :: String)
+            (x:_) -> case Map.lookup "URI" x of
+                        Just val -> Just $ fixUrl (baseUrl segmentsUrl) val
+                        Nothing -> Nothing
 
 segmentUrls :: String -> IO ([String], Maybe String)
 segmentUrls url = do
