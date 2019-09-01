@@ -9,11 +9,13 @@ module M3U8
 
 import Text.Regex.Posix
 import qualified Data.Map.Strict as Map
-import Data.List (intercalate)
+import Data.List (intercalate, isPrefixOf)
 import Data.List.Split
+import qualified Data.ByteString.Lazy as B
 import Network.HTTP.Conduit (simpleHttp)
 
 import M3U8.Util
+import M3U8.Crypto
 
 data Stream = Stream { getStreamMeta :: Map.Map String String
                      , getStreamUrl :: String 
@@ -45,6 +47,16 @@ parseMeta str = Map.fromList $ map (\(k, v) -> (k, stripLR '"' v)) $ map (tuplif
     where
         matches = getAllTextMatches ((snd $ splitAtFirst ':' (str++",")) =~ "[^,]+=(([^,\"]+)|(\"[^\"]+\"))," :: AllTextMatches [] String)
 
+getMetaLine :: String -> [String] -> Maybe String
+getMetaLine metaType lines = case filter (isPrefixOf ("#"++metaType++":")) lines of
+    [] -> Nothing
+    (x:_) -> Just x
+
+getMeta :: String -> [String] -> Maybe (Map.Map String String)
+getMeta metaType lines = case getMetaLine metaType lines of
+    Nothing -> Nothing
+    Just metaLine -> Just $ parseMeta metaLine
+
 streamsFromStr :: String -> String -> [Stream]
 streamsFromStr manifestStr url = map toStream $ zip metas urls 
     where
@@ -59,19 +71,37 @@ streams url = do
     let manifestStr = toString manifestHtml
     return $ streamsFromStr manifestStr url
 
-segmentUrlsFromStr :: String -> String -> ([String], Maybe String)
-segmentUrlsFromStr segmentsStr segmentsUrl = (urls, keyUrl)
+segmentUrlsFromStr :: String -> String -> ([(String, Maybe B.ByteString)], Maybe String)
+segmentUrlsFromStr segmentsStr segmentsUrl = ((zip urls ivs), keyUrl)
     where
         segmentsLines = lines segmentsStr
         urls = map (fixUrl (baseUrl segmentsUrl)) $ filter (\x -> head x /= '#') segmentsLines
-        keyUrl = case map parseMeta $ filter ((==) "#EXT-X-KEY:" . take 11) $ lines segmentsStr of
-            [] -> Nothing
-            (x:_) -> case Map.lookup "URI" x of
-                        Just val -> Just $ fixUrl (baseUrl segmentsUrl) val
-                        Nothing -> Nothing
+        keyMeta = getMeta "EXT-X-KEY" segmentsLines
+        keyUrl = case keyMeta of
+            Nothing -> Nothing
+            Just metaMap -> case Map.lookup "URI" metaMap of
+                Just val -> Just $ fixUrl (baseUrl segmentsUrl) val
+                Nothing -> error "Error: EXT-X-KEY URI not found"
+        ivs = case keyMeta of
+            Nothing -> replicate (length urls) Nothing
+            Just metaMap -> case Map.lookup "IV" metaMap of
+                Just val -> error $ "Error: Discreet IV support not implemented (IV="++val++")"
+                Nothing -> case getMetaLine "EXT-X-MEDIA-SEQUENCE" segmentsLines of
+                    Nothing -> replicate (length urls) (Just zeroIV)
+                    Just metaLine -> map (Just . genIV) [(read $ snd $ splitAtFirst ':' metaLine :: Int)..(length urls)]
 
-segmentUrls :: String -> IO ([String], Maybe String)
+maybeTplMapper :: B.ByteString -> (String, Maybe B.ByteString) -> (String, Maybe (B.ByteString, B.ByteString))
+maybeTplMapper key (s, iv) = case iv of
+    Nothing -> (s, Nothing)
+    Just val -> (s, Just (key, val))
+
+segmentUrls :: String -> IO [(String, Maybe (B.ByteString, B.ByteString))]
 segmentUrls url = do
     segmentHtml <- simpleHttp url
     let segmentStr = toString segmentHtml
-    return $ segmentUrlsFromStr segmentStr url
+    let (segmentIvPairs, keyUrl) = segmentUrlsFromStr segmentStr url
+    case keyUrl of
+        Nothing -> return $ zip (map fst segmentIvPairs) (replicate (length segmentIvPairs) Nothing)
+        Just val -> do
+            key <- simpleHttp val
+            return $ map (maybeTplMapper key) segmentIvPairs

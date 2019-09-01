@@ -86,36 +86,31 @@ saveSegments urls = displayConsoleRegions $ do
 data DecryptMode = Off | ZeroIV | SequentialIV
     deriving (Show, Eq)
 
-appendAndDecrypt :: String -> DecryptMode -> Maybe B.ByteString -> ProgressBar -> (Int, String) -> IO ()
-appendAndDecrypt output dm key pg (i, file) = do
+appendAndDecrypt :: String -> ProgressBar -> (String, Maybe (B.ByteString, B.ByteString)) -> IO ()
+appendAndDecrypt output pg (file, cryptInfo) = do
     bytes <- B.readFile file
-    let decrBytes = case dm of
-                        Off -> bytes
-                        ZeroIV -> case key of
-                                    Just k -> decrypt k bytes
-                                    Nothing -> error "Error: No key provided to appendAndDecrypt when DecryptMode is ZeroIV"
-                        SequentialIV -> case key of
-                                            Just k -> decryptIV k (i, bytes)
-                                            Nothing -> error "Error: No key provided to appendAndDecrypt when DecryptMode is SequentialIV"
+    let decrBytes = case cryptInfo of
+                        Nothing -> bytes
+                        Just (key, iv) -> decryptIV key iv bytes
     B.appendFile output decrBytes
     removeFile file
     tick pg
 
-merge :: [String] -> String -> DecryptMode -> Maybe B.ByteString -> IO ()
-merge files name dm key = displayConsoleRegions $ do
-    let (str1, str2) = case dm of
-                        Off -> ("Merging segments", "Merge")
+merge :: [(String, Maybe (B.ByteString, B.ByteString))] -> String -> IO ()
+merge fileInfos name = displayConsoleRegions $ do
+    let (str1, str2) = case snd $ head fileInfos of
+                        Nothing -> ("Merging segments", "Merge")
                         _ -> ("Decrypting and Merging segments", "Decryption and Merge")
-    pg <- newProgressBar def { pgTotal = (toInteger $ length files)
+    pg <- newProgressBar def { pgTotal = (toInteger $ length fileInfos)
                              , pgOnCompletion = Just (str2++" :percent complete in :elapsed seconds")
                              , pgWidth = 100     
                              , pgFormat = (str1++"... :percent [:bar] :current/:total ") ++
                                           "(for :elapsed, :eta remaining)"                  
                              }
-    let files' = enumerate 1 files
+    -- let files' = enumerate 1 files
     fileExists <- doesFileExist name
     when fileExists (removeFile name)
-    mapM_ (appendAndDecrypt name dm key pg) files'
+    mapM_ (appendAndDecrypt name pg) fileInfos
     removeDirectory "temp"
 
 -- saveSegmentProgress :: ProgressBar -> String -> B.ByteString -> IO ()

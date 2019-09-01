@@ -2,7 +2,9 @@
 module M3U8.Crypto 
     ( 
         decrypt,
-        decryptIV
+        decryptIV,
+        zeroIV,
+        genIV
     ) where
 
 import Data.Binary
@@ -30,8 +32,8 @@ genIV i = B.concat [(encode (0 :: Int64)), (encode ((fromIntegral i) :: Int64))]
 decrypt :: B.ByteString -> B.ByteString -> B.ByteString
 decrypt key encrBytes = crypt CBC (B.toStrict key) (B.toStrict zeroIV) Decrypt encrBytes
 
-decryptIV :: B.ByteString -> (Int, B.ByteString) -> B.ByteString
-decryptIV key (iv, encrBytes) = crypt CBC (B.toStrict key) (B.toStrict $ genIV iv) Decrypt encrBytes
+decryptIV :: B.ByteString -> B.ByteString -> B.ByteString -> B.ByteString
+decryptIV key iv encrBytes = crypt CBC (B.toStrict key) (B.toStrict iv) Decrypt encrBytes
 
 decryptProgress :: ProgressBar -> B.ByteString -> B.ByteString -> IO BI.ByteString
 decryptProgress pg key encrBytes = do
