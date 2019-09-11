@@ -26,6 +26,7 @@ dependencies:
 - bytestring
 - binary
 - regex-posix
+- regex-pcre-builtin
 - http-conduit
 - ascii-progress
 - async
