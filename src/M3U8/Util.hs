@@ -12,7 +12,8 @@ module M3U8.Util
         tuplify2,
         valOrAlt,
         splitAtFirst,
-        stripLR
+        stripLR,
+        extension
     ) where
 
 import System.IO (hFlush, stdout)
@@ -50,6 +51,9 @@ valOrAlt m alt key = case Map.lookup key m of
 splitAtFirst :: Eq a => a -> [a] -> ([a], [a])
 splitAtFirst x = fmap (drop 1) . break (x ==)
 
+extension :: String -> String
+extension str = "."++(reverse $ fst $ splitAtFirst '.' (reverse str))
+
 stripLR :: Char -> String -> String
 stripLR c str = case head str == last str && head str == c of
     True -> tail $ init str
@@ -79,11 +83,11 @@ getUserLine prompt = do
     hFlush stdout
     getLine
 
-getUserChoice :: [(String, String)] -> String -> IO (String, String)
+getUserChoice :: Show a => [(a, String)] -> String -> IO (a, String)
 getUserChoice lst choiceTypeStr = do
     putStrLn $ "\nAvailable "++choiceTypeStr++"s:"
-    mapM printEnumerated $ enumerate 1 $ map fst lst
+    mapM printEnumerated $ enumerate 1 $ map (show . fst) lst
     userStr <- getUserLine "Enter selection"
     let userInt = read userStr :: Int
-    putStrLn $ unicodeRemoveNoneAscii $ "\nSelected "++choiceTypeStr++": "++(fst $ lst !! (userInt - 1))
+    putStrLn $ unicodeRemoveNoneAscii $ "\nSelected "++choiceTypeStr++": "++(show $ fst $ lst !! (userInt - 1))
     return $ lst !! (userInt - 1)

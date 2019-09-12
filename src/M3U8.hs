@@ -8,6 +8,7 @@ module M3U8
     ) where
 
 import Text.Regex.Posix
+import qualified Text.Regex.PCRE as PCRE
 import qualified Data.Map.Strict as Map
 import Data.List (intercalate, isPrefixOf)
 import Data.List.Split
@@ -24,14 +25,18 @@ data Stream = Stream { getStreamMeta :: Map.Map String String
 instance Show Stream where
     show (Stream s url Video) = "Video Stream: "++(intercalate ", " $ filter (not . null) $ map (valOrAlt s "") ["RESOLUTION","AUDIO"])
     show (Stream s url Audio) = "Audio Stream: "++(valOrAlt s url "AUDIO")
+    show (Stream s url Subtitle) = "Subtitle Stream: "++(intercalate ", " $ filter (not . null) $ map (valOrAlt s "") ["NAME","LANGUAGE"])
 
-data StreamType = Video | Audio
+data StreamType = Video | Audio | Subtitle
         deriving (Eq, Show)
 
 toStream :: (Map.Map String String, String) -> Stream
 toStream (meta, url) = case Map.member "RESOLUTION" meta of
                             True -> Stream meta url Video
-                            False -> Stream meta url Audio
+                            False -> case meta Map.!? "TYPE" of
+                                        Nothing -> Stream meta url Audio
+                                        Just "SUBTITLES" -> Stream meta url Subtitle
+                                        _ -> error "Error converting meta info map to stream"
 
 baseUrl :: String -> String
 baseUrl url = reverse $ dropWhile (\x -> x /= '/') $ reverse url
@@ -39,11 +44,16 @@ baseUrl url = reverse $ dropWhile (\x -> x /= '/') $ reverse url
 fixUrl :: String -> String -> String
 fixUrl base url = if (take 4 url == "http") then url else (base++url)
 
-isStreamLine :: String -> Bool
-isStreamLine str = take 18 str == "#EXT-X-STREAM-INF:"
+isStreamLine :: Map.Map String String -> Bool
+isStreamLine m = m_type == "EXT-X-STREAM-INF" || (m_type == "EXT-X-MEDIA" && (m Map.! "TYPE") == "SUBTITLES")
+    where
+        m_type = m Map.! "MetaType"
+
+isMetaLine :: String -> Bool
+isMetaLine str = str PCRE.=~ "^#[A-Z-]+:[A-Z]+=" :: Bool
 
 parseMeta :: String -> Map.Map String String
-parseMeta str = Map.fromList $ map (\(k, v) -> (k, stripLR '"' v)) $ map (tuplify2 . splitOn "=" . init) matches
+parseMeta str = Map.fromList $ (map (\(k, v) -> (k, stripLR '"' v)) $ map (splitAtFirst '=' . init) matches)++[("MetaType", drop 1 $ fst $ splitAtFirst ':' str)]
     where
         matches = getAllTextMatches ((snd $ splitAtFirst ':' (str++",")) =~ "[^,]+=(([^,\"]+)|(\"[^\"]+\"))," :: AllTextMatches [] String)
 
@@ -57,13 +67,16 @@ getMeta metaType lines = case getMetaLine metaType lines of
     Nothing -> Nothing
     Just metaLine -> Just $ parseMeta metaLine
 
+getUrl :: [String] -> (Int, Map.Map String String) -> String
+getUrl ls (i, m) = valOrAlt m (ls !! i) "URI"
+
 streamsFromStr :: String -> String -> [Stream]
-streamsFromStr manifestStr url = map toStream $ zip metas urls 
+streamsFromStr manifestStr url = map toStream $ zip (map snd metaPairs) urls 
     where
-        metaPairs = filter (isStreamLine . snd) $ enumerate 0 manifestLines
-        urls = map (fixUrl (baseUrl url)) $ map ((!!) manifestLines . (+) 1 . fst) metaPairs
-        metas = map parseMeta (map snd metaPairs)
         manifestLines = lines manifestStr
+        metaStrPairs = filter (isMetaLine . snd) $ enumerate 1 manifestLines
+        metaPairs = filter (\(i, m) -> isStreamLine m) $ map (\(i, s) -> (i, parseMeta s)) metaStrPairs
+        urls = map (fixUrl (baseUrl url)) $ map (getUrl manifestLines) metaPairs
 
 streams :: String -> IO [Stream]
 streams url = do
