@@ -35,21 +35,33 @@ dependencies:
 - hxt-unicode
 - containers
 - split
+- cmdargs
+- process
 
 library:
   source-dirs: src
 
-
-# executables:
-#   m3u8-exe:
-#     main:                Main.hs
-#     source-dirs:         app
-#     ghc-options:
-#     - -threaded
-#     - -rtsopts
-#     - -with-rtsopts=-N
-#     dependencies:
-#     - m3u8
+executables:
+  sdl:
+    main:                SDL.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    - -main-is SDL
+    dependencies:
+    - m3u8
+  srtc:
+    main:                SRTC.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    - -main-is SRTC
+    dependencies:
+    - m3u8
 
 tests:
   m3u8-test:

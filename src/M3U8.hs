@@ -18,9 +18,9 @@ import Network.HTTP.Conduit (simpleHttp)
 import M3U8.Util
 import M3U8.Crypto
 
-data Stream = Stream { getStreamMeta :: Map.Map String String
-                     , getStreamUrl :: String 
-                     , getStreamType :: StreamType } deriving (Eq)
+data Stream = Stream { streamMeta :: Map.Map String String
+                     , streamUrl :: String 
+                     , streamType :: StreamType } deriving (Eq)
 
 instance Show Stream where
     show (Stream s url Video) = "Video Stream: "++(intercalate ", " $ filter (not . null) $ map (valOrAlt s "") ["RESOLUTION","AUDIO"])

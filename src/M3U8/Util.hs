@@ -3,6 +3,7 @@ module M3U8.Util
     (
         getUserLine,
         getUserChoice,
+        showChoices,
         mapPool,
         enumerate,
         contains,
@@ -13,7 +14,8 @@ module M3U8.Util
         valOrAlt,
         splitAtFirst,
         stripLR,
-        extension
+        extension,
+        initFileName
     ) where
 
 import System.IO (hFlush, stdout)
@@ -51,6 +53,9 @@ valOrAlt m alt key = case Map.lookup key m of
 splitAtFirst :: Eq a => a -> [a] -> ([a], [a])
 splitAtFirst x = fmap (drop 1) . break (x ==)
 
+initFileName :: String -> String
+initFileName str = reverse $ snd $ splitAtFirst '.' (reverse str)
+
 extension :: String -> String
 extension str = "."++(reverse $ fst $ splitAtFirst '.' (reverse str))
 
@@ -83,10 +88,14 @@ getUserLine prompt = do
     hFlush stdout
     getLine
 
+showChoices :: Show a => [a] -> String -> IO ()
+showChoices xs choiceTypeStr = do
+    putStrLn $ "\nAvailable "++choiceTypeStr++"s:"
+    mapM_ printEnumerated $ enumerate 1 $ map show xs
+
 getUserChoice :: Show a => [(a, String)] -> String -> IO (a, String)
 getUserChoice lst choiceTypeStr = do
-    putStrLn $ "\nAvailable "++choiceTypeStr++"s:"
-    mapM printEnumerated $ enumerate 1 $ map (show . fst) lst
+    showChoices (map fst lst) choiceTypeStr
     userStr <- getUserLine "Enter selection"
     let userInt = read userStr :: Int
     putStrLn $ unicodeRemoveNoneAscii $ "\nSelected "++choiceTypeStr++": "++(show $ fst $ lst !! (userInt - 1))

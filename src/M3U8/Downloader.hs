@@ -64,14 +64,14 @@ download name urls = displayConsoleRegions $ do
 saveSegment :: Manager -> ProgressBar -> String -> IO String
 saveSegment m pg url = do
     bytes <- downloadHttpTimeout m url
-    let name = ("temp/"++(fileName url))
+    let name = ("m3u8-temp-dir/"++(fileName url))
     B.writeFile name bytes
     tick pg
     return name
 
 saveSegments :: [String] -> IO [String]
 saveSegments urls = displayConsoleRegions $ do
-    createDirectoryIfMissing True "temp"
+    createDirectoryIfMissing True "m3u8-temp-dir"
     pg <- newProgressBar def { pgTotal = (toInteger $ length urls)
                              , pgOnCompletion = Just "Download :percent complete in :elapsed seconds"
                              , pgWidth = 100     
@@ -111,7 +111,7 @@ merge fileInfos name = displayConsoleRegions $ do
     fileExists <- doesFileExist name
     when fileExists (removeFile name)
     mapM_ (appendAndDecrypt name pg) fileInfos
-    removeDirectory "temp"
+    removeDirectoryRecursive "m3u8-temp-dir"
 
 -- saveSegmentProgress :: ProgressBar -> String -> B.ByteString -> IO ()
 -- saveSegmentProgress pg name bytes = do

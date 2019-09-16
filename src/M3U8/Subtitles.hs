@@ -10,7 +10,7 @@ import Data.Char (isSpace)
 import Text.Regex.PCRE
 import Text.Printf
 
-import M3U8.Util (enumerate)
+import M3U8.Util (enumerate, initFileName, contains)
 
 data ST = ST [Block]
     deriving (Show)
@@ -27,7 +27,7 @@ parse xs = parse' xs (ST [])
 parse' :: [String] -> ST -> ST
 parse' [] st = st
 parse' (x:xs) (ST bs)
-    | "WEBVTT" `isPrefixOf` x = parse' (drop 1 xs) (addBlock (ST bs) (head xs))
+    | contains "WEBVTT" x = parse' (drop 1 xs) (addBlock (ST bs) (head xs))     -- | "WEBVTT" `isPrefixOf` x = parse' (drop 1 xs) (addBlock (ST bs) (head xs))
     | isDurationLine x = parse' xs (addCue (ST bs) x)
     | isNumLine x = parse' xs (ST bs)
     | all isSpace x = parse' xs (ST bs)
@@ -108,8 +108,10 @@ genSRT' ((I_Block (offset, cs)):xs) ics = genSRT' xs (ics++cs') where
 toSrtCue :: Float -> I_Cue -> I_Cue
 toSrtCue offset (I_Cue (start, end, ds)) = I_Cue ((offset+start), (offset+end), ds)
 
-convert :: String -> String -> IO ()
-convert input output = do
+convert :: String -> IO String
+convert input = do
     subtitles <- readFile input
     let converted = show $ genSRT $ process $ parse $ lines subtitles
-    writeFile output converted
+    let newFileName = ((initFileName input)++".srt")
+    writeFile newFileName converted
+    return newFileName
