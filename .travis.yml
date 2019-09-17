@@ -8,6 +8,10 @@
 # Copy these contents into the root directory of your Github project in a file
 # named .travis.yml
 
+env:
+  global:
+    - CACHE_DIR=$([ $TRAVIS_OS_NAME = 'windows' ] && echo "$HOME/AppData/Roaming/stack" || echo "$HOME/.stack")
+
 # Choose a build environment
 dist: xenial
 
@@ -22,12 +26,7 @@ os:
 # Caching so the next build will be fast too.
 cache:
   directories:
-  - |
-    if [ "$TRAVIS_OS_NAME" = "windows" ]; then
-      $HOME/AppData/Roaming/stack
-    else
-      $HOME/.stack
-    fi
+  - $CACHE_DIR
 
 # Ensure necessary system libraries are present
 addons:
