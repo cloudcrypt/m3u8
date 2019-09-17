@@ -51,7 +51,6 @@ before_install:
 install:
 # Build dependencies
 - stack --no-terminal --install-ghc build --only-dependencies
-- stack install github-release
 
 script:
 # Build the package, its tests, and its docs and run the tests
@@ -61,14 +60,13 @@ script:
 after_success:
 - |
   if test "$TRAVIS_TAG" -a "$TOKEN"; then
-    set -x
     cd $(stack path --local-bin)
     if [ "$TRAVIS_OS_NAME" = "windows" ]; then
       curl --location https://github.com/tfausak/github-release/releases/download/1.2.4/github-release-windows.zip > github-release.zip
-      7z e github-release.zip
+      7z e github-release.zip -y
     else
       curl --location https://github.com/tfausak/github-release/releases/download/1.2.4/github-release-$TRAVIS_OS_NAME.gz > github-release.gz
-      gunzip github-release.gz
+      gunzip github-release.gz -f
       chmod +x github-release
     fi
     if [ "$TRAVIS_OS_NAME" = "windows" ]; then
