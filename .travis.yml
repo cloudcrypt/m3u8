@@ -22,7 +22,12 @@ os:
 # Caching so the next build will be fast too.
 cache:
   directories:
-  - $HOME/.stack
+  - |
+    if [ "$TRAVIS_OS_NAME" = "windows" ]; then
+      $HOME/AppData/Roaming/stack
+    else
+      $HOME/.stack
+    fi
 
 # Ensure necessary system libraries are present
 addons:
