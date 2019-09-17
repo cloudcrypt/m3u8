@@ -62,17 +62,24 @@ after_success:
 - |
   if test "$TRAVIS_TAG" -a "$TOKEN"; then
     set -x
-    echo "In if"
     cd $(stack path --local-bin)
     if [ "$TRAVIS_OS_NAME" = "windows" ]; then
+      curl --location https://github.com/tfausak/github-release/releases/download/1.2.4/github-release-windows.zip > github-release.zip
+      7z e github-release.zip
+    else
+      curl --location https://github.com/tfausak/github-release/releases/download/1.2.4/github-release-$TRAVIS_OS_NAME.gz > github-release.gz
+      gunzip github-release.gz
+      chmod +x github-release
+    fi
+    if [ "$TRAVIS_OS_NAME" = "windows" ]; then
       7z a "sdl-$TRAVIS_OS_NAME.zip" sdl.exe
-      stack exec -- github-release upload --token "$TOKEN" --owner "cloudcrypt" --repo "m3u8" --tag "$TRAVIS_TAG" --file "sdl-$TRAVIS_OS_NAME.zip" --name "sdl-$TRAVIS_OS_NAME.zip"
+      ./github-release upload --token "$TOKEN" --owner "cloudcrypt" --repo "m3u8" --tag "$TRAVIS_TAG" --file "sdl-$TRAVIS_OS_NAME.zip" --name "sdl-$TRAVIS_OS_NAME.zip"
       7z a "srtc-$TRAVIS_OS_NAME.zip" srtc.exe
-      stack exec -- github-release upload --token "$TOKEN" --owner "cloudcrypt" --repo "m3u8" --tag "$TRAVIS_TAG" --file "srtc-$TRAVIS_OS_NAME.zip" --name "srtc-$TRAVIS_OS_NAME.zip"
+      ./github-release upload --token "$TOKEN" --owner "cloudcrypt" --repo "m3u8" --tag "$TRAVIS_TAG" --file "srtc-$TRAVIS_OS_NAME.zip" --name "srtc-$TRAVIS_OS_NAME.zip"
     else
       tar -cvzf "sdl-$TRAVIS_OS_NAME.tar.gz" sdl
-      stack exec -- github-release upload --token "$TOKEN" --owner "cloudcrypt" --repo "m3u8" --tag "$TRAVIS_TAG" --file "sdl-$TRAVIS_OS_NAME.tar.gz" --name "sdl-$TRAVIS_OS_NAME.tar.gz"
+      ./github-release upload --token "$TOKEN" --owner "cloudcrypt" --repo "m3u8" --tag "$TRAVIS_TAG" --file "sdl-$TRAVIS_OS_NAME.tar.gz" --name "sdl-$TRAVIS_OS_NAME.tar.gz"
       tar -cvzf "srtc-$TRAVIS_OS_NAME.tar.gz" srtc
-      stack exec -- github-release upload --token "$TOKEN" --owner "cloudcrypt" --repo "m3u8" --tag "$TRAVIS_TAG" --file "srtc-$TRAVIS_OS_NAME.tar.gz" --name "srtc-$TRAVIS_OS_NAME.tar.gz"
+      ./github-release upload --token "$TOKEN" --owner "cloudcrypt" --repo "m3u8" --tag "$TRAVIS_TAG" --file "srtc-$TRAVIS_OS_NAME.tar.gz" --name "srtc-$TRAVIS_OS_NAME.tar.gz"
     fi
   fi
