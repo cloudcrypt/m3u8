@@ -1,4 +1,4 @@
-# m3u8 [![Build Status](https://travis-ci.org/cloudcrypt/m3u8.svg?branch=master)](https://travis-ci.org/cloudcrypt/m3u8)
+# m3u8 [![Build Status](https://travis-ci.org/cloudcrypt/m3u8.svg?branch=master)](https://travis-ci.org/cloudcrypt/m3u8) ![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/cloudcrypt/m3u8?include_prereleases)
 Haskell library for m3u8 stream parsing, downloading, and decrypting.
 
 Provides conversion of segmented WEBVTT subtitle files into consolidated SRT subtitle files (through `srtc`)
