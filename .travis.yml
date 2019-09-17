@@ -56,10 +56,12 @@ install:
 script:
 # Build the package, its tests, and its docs and run the tests
 - stack --no-terminal build
+- stack install
 
 after_success:
 - |
   if test "$TRAVIS_TAG" -a "$TOKEN"; then
+    echo "In if"
     cd $(stack path --local-bin)
     if [ "$TRAVIS_OS_NAME" = "windows" ]; then
       7z a "sdl-$TRAVIS_OS_NAME.zip" sdl.exe
