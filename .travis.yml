@@ -17,6 +17,7 @@ language: generic
 os:
 - linux
 - osx
+- windows
 
 # Caching so the next build will be fast too.
 cache:
@@ -34,11 +35,13 @@ before_install:
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
 - |
-  if [ `uname` = "Darwin" ]
+  if [ "$TRAVIS_OS_NAME" = "osx" ]
   then
     travis_retry curl --insecure -L https://get.haskellstack.org/stable/osx-x86_64.tar.gz | tar xz --strip-components=1 --include '*/stack' -C ~/.local/bin
-  else
+  elif [ "$TRAVIS_OS_NAME" = "linux" ]
     travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+  elif [ "$TRAVIS_OS_NAME" = "windows" ]
+    choco install haskell-stack
   fi
 
 install:
