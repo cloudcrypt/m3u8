@@ -5,3 +5,8 @@ Provides conversion of segmented WEBVTT subtitle files into consolidated SRT sub
 
 ### Building
 `stack build`
+
+### Binaries
+Available at https://github.com/cloudcrypt/m3u8/releases
+- sdl: m3u8 video/audio/subtitle stream downloading, supports interactive and cli modes
+- srtc: Converts segmented (merged) WEBVTT subtitles to SRT format 
