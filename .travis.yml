@@ -10,7 +10,9 @@
 
 env:
   global:
+    - secure: zSGj+l3kFDpHcKcAyrxm+nN9jqf4BQZtBc+59gAmUeYKvuRxgRy/CXIUUbFy2I3FYvTGgCYGLlAwZkMOGx2LwfMlvnvBoGwovKcVH11Vrhgz1/3/KVYmAk4ayTtKWCZaWKQwbEHOO6/uxNcKjkHy03tqS1Dl31cz9dGfrOeoiBtgDQV5JH8kZcp5yUZnh34zj6gz4Dvn/tOCp/b3JOP28tHYyWB+VGIkWhX+m3OJa/t6Qbh1wd2EpTO7f2IDGYa2gY4TmHIhsgx0gzhv+RYmne7Et374oYYDz6Wcl7Ei0Ac4cPCAxi+ykqCe6o8qrts8SKQE1zUWgMVHO02RU2cL5udtKU7PoSFJUnzNwvZbHdiokU/Wem967abW/35BnYPki8bPuDmBgy+AGHl7y7CwzCb6PuJcyB20RcooczLi4oXWZgB98D7J+oTcMfk34dURLgvbarQKP71lZT/RaxUmOo73lAd3QT47aeynsXPS2GGAusryyFNpDqp6urEiYEUuBJ/9GumrfWr64po5nsFPSQ9F3dETQErVZDuTQddTDA9ADbFDxEmcJ/cor26UbhKUBh93z1aBLLf12Jf81UMRH13a2KW72mdV97v1DDLr48zLLVP+mgLjxLXKVsMRINEwYU43B4R7WKlOUPbjXuNbjcKrvConcSbDE3Dq+N49Q4E=
     - CACHE_DIR=$([ $TRAVIS_OS_NAME = 'windows' ] && echo "$HOME/AppData/Roaming/stack" || echo "$HOME/.stack")
+    - STACK_BIN_DIR=$(stack path --local-bin)
 
 # Choose a build environment
 dist: xenial
@@ -50,7 +52,25 @@ before_install:
 install:
 # Build dependencies
 - stack --no-terminal --install-ghc build --only-dependencies
+- stack install github-release
 
 script:
 # Build the package, its tests, and its docs and run the tests
 - stack --no-terminal build
+
+after_success:
+- |
+  if test "$TRAVIS_TAG" -a "$TOKEN"; then
+    cd $STACK_BIN_DIR
+    if [ "$TRAVIS_OS_NAME" = "windows" ]; then
+      7z a "sdl-$TRAVIS_OS_NAME.zip" sdl.exe
+      stack exec -- github-release upload --token $TOKEN --owner 'cloudcrypt' --repo 'm3u8' --tag "$TRAVIS_TAG" --file "sdl-$TRAVIS_OS_NAME.zip" --name "sdl-$TRAVIS_OS_NAME.zip"
+      7z a "srtc-$TRAVIS_OS_NAME.zip" srtc.exe
+      stack exec -- github-release upload --token $TOKEN --owner 'cloudcrypt' --repo 'm3u8' --tag "$TRAVIS_TAG" --file "srtc-$TRAVIS_OS_NAME.zip" --name "srtc-$TRAVIS_OS_NAME.zip"
+    else
+      tar -cvzf "sdl-$TRAVIS_OS_NAME.tar.gz" sdl
+      stack exec -- github-release upload --token $TOKEN --owner 'cloudcrypt' --repo 'm3u8' --tag "$TRAVIS_TAG" --file "sdl-$TRAVIS_OS_NAME.tar.gz" --name "sdl-$TRAVIS_OS_NAME.tar.gz"
+      tar -cvzf "srtc-$TRAVIS_OS_NAME.tar.gz" srtc
+      stack exec -- github-release upload --token $TOKEN --owner 'cloudcrypt' --repo 'm3u8' --tag "$TRAVIS_TAG" --file "srtc-$TRAVIS_OS_NAME.tar.gz" --name "srtc-$TRAVIS_OS_NAME.tar.gz"
+    fi
+  fi
