@@ -60,7 +60,7 @@ isStreamLine m = m_type == "EXT-X-STREAM-INF" || (m_type == "EXT-X-MEDIA" && (m 
         m_type = m Map.! "MetaType"
 
 isMetaLine :: String -> Bool
-isMetaLine str = str PCRE.=~ "^#[A-Z-]+:[A-Z]+=" :: Bool
+isMetaLine str = str PCRE.=~ "^#[A-Z0-9-]+:[A-Z0-9-]+=" :: Bool
 
 parseMeta :: String -> Map.Map String String
 parseMeta str = Map.fromList $ (map (\(k, v) -> (k, stripLR '"' v)) $ map (splitAtFirst '=' . init) matches)++[("MetaType", drop 1 $ fst $ splitAtFirst ':' str)]
