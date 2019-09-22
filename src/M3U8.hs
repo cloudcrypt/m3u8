@@ -3,6 +3,7 @@ module M3U8
     ( 
         streams,
         segmentUrls,
+        processStream,
         Stream(..),
         StreamType(..)
     ) where
@@ -15,8 +16,17 @@ import Data.List.Split
 import qualified Data.ByteString.Lazy as B
 import Network.HTTP.Conduit (simpleHttp)
 
+import Control.Monad
+import Data.Char
+import System.Directory
+import System.Process (rawSystem)
+import System.Exit (ExitCode(..))
+
 import M3U8.Util
 import M3U8.Crypto
+import M3U8.Downloader
+import M3U8.Subtitles
+import M3U8.UI
 
 data Stream = Stream { streamMeta :: Map.Map String String
                      , streamUrl :: String 
@@ -118,3 +128,51 @@ segmentUrls url = do
         Just val -> do
             key <- simpleHttp val
             return $ map (maybeTplMapper key) segmentIvPairs
+
+-- ##############################
+
+getSubtitles :: Stream -> String -> Bool -> IO ()
+getSubtitles (Stream s url Subtitle) videoFileName merge_subtitles = do
+    subtitleFile <- saveStream ((initFileName videoFileName)++"_subtitle_"++(valOrAlt s "lang" "NAME")) url
+    putStrLn $ "Subtitle stream saved to \""++subtitleFile++"\"\n"
+    putStrLn "Converting subtitle stream to SRT format..."
+    subtitleFile' <- convert subtitleFile
+    putStrLn $ "Converted subtitle stream saved to \""++subtitleFile'++"\"\n"
+    fileExists <- doesFileExist subtitleFile
+    when fileExists (removeFile subtitleFile)
+    case merge_subtitles of
+        False -> return ()
+        True -> do
+            exitCode <- rawSystem "mkvmerge" ["-o", ((initFileName videoFileName)++".mkv"), videoFileName, subtitleFile']
+            case exitCode of
+                ExitSuccess -> do
+                    fileExists' <- doesFileExist videoFileName
+                    when fileExists' (removeFile videoFileName)
+                    putStrLn $ "Merged file saved to \""++(initFileName videoFileName)++".mkv\"\n"
+                ExitFailure _ -> return ()
+
+mergeSubtitles :: [Stream] -> Stream -> String -> CLIMode -> IO ()
+mergeSubtitles ((Stream s url Subtitle):_) (Stream _ _ Video) videoFileName Auto{merge_subtitles=merge_subtitles} = getSubtitles (Stream s url Subtitle) videoFileName merge_subtitles
+mergeSubtitles ((Stream s url Subtitle):_) (Stream _ _ Video) videoFileName Interactive = do
+    userMergeSubtitles <- liftM (map toLower) $ getUserLine "Merge subtitles into video file? (yes/no)"
+    let merge_subtitles = case userMergeSubtitles of
+                            "yes" -> True 
+                            "no" -> False
+                            _ -> error $ "Error: Unrecognized response: "++userMergeSubtitles
+    getSubtitles (Stream s url Subtitle) videoFileName merge_subtitles
+mergeSubtitles _ _ _ _ = return ()
+
+saveStream :: String -> String -> IO String
+saveStream fileName stream_url = do
+    segInfos <- segmentUrls stream_url
+    putStrLn $ (show (length segInfos))++" segments found.\n"
+    segmentFiles <- saveSegments $ map fst segInfos
+    let savedFile = (fileName++(extension $ head segmentFiles))
+    merge (zip segmentFiles $ map snd segInfos) savedFile
+    putStrLn $ "Stream saved to \""++savedFile++"\"\n"
+    return savedFile
+
+processStream :: String -> Stream -> [Stream] -> CLIMode -> IO ()
+processStream fileName s ss cm = do
+    savedFile <- saveStream fileName (streamUrl s)
+    mergeSubtitles (filter (\s -> (streamType s) == Subtitle) ss) s savedFile cm
