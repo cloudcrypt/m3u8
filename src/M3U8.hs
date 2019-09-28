@@ -19,6 +19,7 @@ import Network.HTTP.Conduit (simpleHttp)
 import Control.Monad
 import Data.Char
 import System.Directory
+import System.FilePath (pathSeparator)
 import System.Process (rawSystem)
 import System.Exit (ExitCode(..))
 
@@ -169,7 +170,8 @@ saveStream fileName stream_url = do
     segmentFiles <- saveSegments $ map fst segInfos
     let savedFile = (fileName++(extension $ head segmentFiles))
     merge (zip segmentFiles $ map snd segInfos) savedFile
-    putStrLn $ "Stream saved to \""++savedFile++"\"\n"
+    currentDir <- getCurrentDirectory
+    putStrLn $ "Stream saved to \""++currentDir++[pathSeparator]++savedFile++"\"\n"
     return savedFile
 
 processStream :: String -> Stream -> [Stream] -> CLIMode -> IO ()
