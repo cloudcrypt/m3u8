@@ -19,7 +19,7 @@ import M3U8.Util
 import M3U8.Crypto
 
 fileName :: String -> String
-fileName url = T.unpack $ last $ T.splitOn (T.pack "/") (T.pack url)
+fileName url = T.unpack $ head $ T.splitOn (T.pack "?") $ last $ T.splitOn (T.pack "/") (T.pack url)
 
 downloadHttpTimeout :: Manager -> String -> IO B.ByteString
 downloadHttpTimeout manager url = do
