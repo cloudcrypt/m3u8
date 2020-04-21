@@ -46,7 +46,6 @@ before_install:
     travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
   elif [ "$TRAVIS_OS_NAME" = "windows" ]; then
     choco install haskell-stack
-    set __COMPAT_LAYER=
   fi
 
 install:

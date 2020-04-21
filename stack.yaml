@@ -44,13 +44,17 @@ packages:
 # extra-deps: []
 extra-deps:
 - SimpleAES-0.4.2@sha256:d24c06a82f246071192bbcc62f8e12c531fbd70f5482a71568b797b66f6dfa60,1436
-- regex-posix-clib-2.7
+
+# for regex-posix build issue on
+# - regex-posix-clib-2.7
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
-flags:
-  regex-posix:
-    _regex-posix-clib: true
+
+# for regex-posix build issue on windows:
+# flags:
+#   regex-posix:
+#     _regex-posix-clib: true
 
 # Extra package databases containing global packages
 # extra-package-dbs: []
