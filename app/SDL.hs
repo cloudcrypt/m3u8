@@ -14,7 +14,7 @@ run cm@Auto{merge_subtitles=merge_subtitles, url=url, out=out} = do
     putStrLn $ "Selected Stream: "++(show stream)
     processStream out stream ss cm
 run cm@Interactive = do
-    url <- getUserLine "Enter m3u8 link"
+    url <- getUserLine "Enter m3u8 link or path"
     fileName <- getUserLine "Enter title"
 
     ss <- streams url

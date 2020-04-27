@@ -37,8 +37,9 @@ instance Show Stream where
     show (Stream s url Video) = "Video Stream: "++(intercalate ", " $ filter (not . null) $ map (valOrAlt s "") ["RESOLUTION","AUDIO"])
     show (Stream s url Audio) = "Audio Stream: "++(valOrAlt s url "AUDIO")
     show (Stream s url Subtitle) = "Subtitle Stream: "++(intercalate ", " $ filter (not . null) $ map (valOrAlt s "") ["NAME","LANGUAGE"])
+    show (Stream s url Unknown) = "Unknown Stream: "++url
 
-data StreamType = Video | Audio | Subtitle
+data StreamType = Video | Audio | Subtitle | Unknown
         deriving (Eq, Show)
 
 toStream :: (Map.Map String String, String) -> Stream
@@ -90,10 +91,11 @@ streamsFromStr manifestStr url = map toStream $ zip (map snd metaPairs) urls
         urls = map (fixUrl (baseUrl url)) $ map (getUrl manifestLines) metaPairs
 
 streams :: String -> IO [Stream]
-streams url = do
-    manifestHtml <- simpleHttp url
-    let manifestStr = toString manifestHtml
-    return $ streamsFromStr manifestStr url
+streams path = do
+    m3u8Text <- readHttpOrPath path
+    return $ case contains "#EXT-X-PLAYLIST-TYPE" m3u8Text of
+                True -> [(Stream Map.empty path Unknown)]
+                False -> streamsFromStr m3u8Text path
 
 segmentUrlsFromStr :: String -> String -> ([(String, Maybe B.ByteString)], Maybe String)
 segmentUrlsFromStr segmentsStr segmentsUrl = ((zip urls ivs), keyUrl)
@@ -121,8 +123,7 @@ maybeTplMapper key (s, iv) = case iv of
 
 segmentUrls :: String -> IO [(String, Maybe (B.ByteString, B.ByteString))]
 segmentUrls url = do
-    segmentHtml <- simpleHttp url
-    let segmentStr = toString segmentHtml
+    segmentStr <- readHttpOrPath url
     let (segmentIvPairs, keyUrl) = segmentUrlsFromStr segmentStr url
     case keyUrl of
         Nothing -> return $ zip (map fst segmentIvPairs) (replicate (length segmentIvPairs) Nothing)

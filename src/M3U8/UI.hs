@@ -17,7 +17,7 @@ data CLIMode = Auto {merge_subtitles :: Bool
 cli_args :: CLIMode
 cli_args = Auto
     {merge_subtitles = True &= help "Download and merge subtitles if present"
-    ,url = def &= argPos 0 &= typ "URL"
+    ,url = def &= argPos 0 &= typ "<URL or PATH>"
     ,out = def &= argPos 1 &= typFile}
 
 cli_modes :: String -> String -> CLIMode

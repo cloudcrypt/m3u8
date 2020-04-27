@@ -8,6 +8,7 @@ module M3U8.Util
         enumerate,
         contains,
         toString,
+        readHttpOrPath,
         parseStreamInfo,
         removeColons,
         tuplify2,
@@ -30,6 +31,7 @@ import qualified Data.Map.Strict as Map
 import Control.Concurrent.Async
 import Control.Concurrent.MSem
 import Data.String.Unicode
+import Network.HTTP.Conduit (simpleHttp)
 
 mapPool :: T.Traversable t => Int -> (a -> IO b) -> t a -> IO (t b)
 mapPool max f xs = do
@@ -72,6 +74,13 @@ enumerate start lst = zip [start..(length lst)] lst
 
 toString :: B.ByteString -> String
 toString bs = map (chr . fromEnum) (B.unpack bs)
+
+readHttpOrPath :: String -> IO String
+readHttpOrPath path = case (take 7 path) == "http://" || (take 8 path) == "https://" of
+                        True -> do
+                            httpResponse <- simpleHttp path
+                            return $ toString httpResponse
+                        False -> readFile path
 
 printEnumerated :: (Int, String) -> IO ()
 printEnumerated (i, str) = do putStrLn $ unicodeRemoveNoneAscii $ (show i)++":\t"++str
