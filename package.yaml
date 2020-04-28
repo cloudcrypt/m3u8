@@ -38,6 +38,7 @@ dependencies:
 - split
 - cmdargs
 - process
+- http-types
 
 library:
   source-dirs: src

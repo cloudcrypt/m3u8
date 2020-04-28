@@ -2,13 +2,13 @@
 module M3U8.Util
     (
         getUserLine,
+        getUserInt,
         getUserChoice,
         showChoices,
         mapPool,
         enumerate,
         contains,
         toString,
-        readHttpOrPath,
         parseStreamInfo,
         removeColons,
         tuplify2,
@@ -31,7 +31,6 @@ import qualified Data.Map.Strict as Map
 import Control.Concurrent.Async
 import Control.Concurrent.MSem
 import Data.String.Unicode
-import Network.HTTP.Conduit (simpleHttp)
 
 mapPool :: T.Traversable t => Int -> (a -> IO b) -> t a -> IO (t b)
 mapPool max f xs = do
@@ -75,13 +74,6 @@ enumerate start lst = zip [start..(length lst)] lst
 toString :: B.ByteString -> String
 toString bs = map (chr . fromEnum) (B.unpack bs)
 
-readHttpOrPath :: String -> IO String
-readHttpOrPath path = case (take 7 path) == "http://" || (take 8 path) == "https://" of
-                        True -> do
-                            httpResponse <- simpleHttp path
-                            return $ toString httpResponse
-                        False -> readFile path
-
 printEnumerated :: (Int, String) -> IO ()
 printEnumerated (i, str) = do putStrLn $ unicodeRemoveNoneAscii $ (show i)++":\t"++str
 
@@ -96,6 +88,15 @@ getUserLine prompt = do
     putStr $ prompt++": "
     hFlush stdout
     getLine
+
+getUserInt :: String -> Int -> IO Int
+getUserInt prompt def = do
+    putStr $ prompt++": "
+    hFlush stdout
+    userLine <- getLine
+    case userLine == "" of
+        True -> return def
+        False -> return $ (read userLine :: Int)
 
 showChoices :: Show a => [a] -> String -> IO ()
 showChoices xs choiceTypeStr = do

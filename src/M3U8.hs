@@ -14,7 +14,6 @@ import qualified Data.Map.Strict as Map
 import Data.List (intercalate, isPrefixOf)
 import Data.List.Split
 import qualified Data.ByteString.Lazy as B
-import Network.HTTP.Conduit (simpleHttp)
 
 import Control.Monad
 import Data.Char
@@ -54,7 +53,11 @@ baseUrl :: String -> String
 baseUrl url = reverse $ dropWhile (\x -> x /= '/') $ reverse url
 
 fixUrl :: String -> String -> String
-fixUrl base url = if (take 4 url == "http") then url else (base++url)
+fixUrl base url = if (take 4 url == "http") then url else (currBase++url)
+    where
+        currBase = case contains "/" url of
+                        False -> base
+                        True -> base PCRE.=~ "https://[^/]+" :: String
 
 isStreamLine :: Map.Map String String -> Bool
 isStreamLine m = m_type == "EXT-X-STREAM-INF" || (m_type == "EXT-X-MEDIA" && (m Map.! "TYPE") == "SUBTITLES")
@@ -85,10 +88,11 @@ getUrl ls (i, m) = valOrAlt m (ls !! i) "URI"
 streamsFromStr :: String -> String -> [Stream]
 streamsFromStr manifestStr url = map toStream $ zip (map snd metaPairs) urls 
     where
+        -- currBaseUrl = blah blah
         manifestLines = lines manifestStr
         metaStrPairs = filter (isMetaLine . snd) $ enumerate 1 manifestLines
         metaPairs = filter (\(i, m) -> isStreamLine m) $ map (\(i, s) -> (i, parseMeta s)) metaStrPairs
-        urls = map (fixUrl (baseUrl url)) $ map (getUrl manifestLines) metaPairs
+        urls = map (fixUrl (baseUrl url)) $ map (getUrl manifestLines) metaPairs -- replace baseUrl with currBaseUrl
 
 streams :: String -> IO [Stream]
 streams path = do
@@ -100,13 +104,14 @@ streams path = do
 segmentUrlsFromStr :: String -> String -> ([(String, Maybe B.ByteString)], Maybe String)
 segmentUrlsFromStr segmentsStr segmentsUrl = ((zip urls ivs), keyUrl)
     where
+        -- currBaseUrl = blah blah
         segmentsLines = lines segmentsStr
-        urls = map (fixUrl (baseUrl segmentsUrl)) $ filter (\x -> head x /= '#') segmentsLines
+        urls = map (fixUrl (baseUrl segmentsUrl)) $ filter (\x -> head x /= '#') segmentsLines -- replace baseUrl with currBaseUrl
         keyMeta = getMeta "EXT-X-KEY" segmentsLines
         keyUrl = case keyMeta of
             Nothing -> Nothing
             Just metaMap -> case Map.lookup "URI" metaMap of
-                Just val -> Just $ fixUrl (baseUrl segmentsUrl) val
+                Just val -> Just $ fixUrl (baseUrl segmentsUrl) val -- replace baseUrl with currBaseUrl
                 Nothing -> error "Error: EXT-X-KEY URI not found"
         ivs = case keyMeta of
             Nothing -> replicate (length urls) Nothing
@@ -128,14 +133,14 @@ segmentUrls url = do
     case keyUrl of
         Nothing -> return $ zip (map fst segmentIvPairs) (replicate (length segmentIvPairs) Nothing)
         Just val -> do
-            key <- simpleHttp val
+            key <- simpleHttpTls val
             return $ map (maybeTplMapper key) segmentIvPairs
 
 -- ##############################
 
-getSubtitles :: Stream -> String -> Bool -> IO ()
-getSubtitles (Stream s url Subtitle) videoFileName merge_subtitles = do
-    subtitleFile <- saveStream ((initFileName videoFileName)++"_subtitle_"++(valOrAlt s "lang" "NAME")) url
+getSubtitles :: Stream -> Int -> Bool -> String -> Bool -> IO ()
+getSubtitles (Stream s url Subtitle) concurrency slow videoFileName merge_subtitles = do
+    subtitleFile <- saveStream ((initFileName videoFileName)++"_subtitle_"++(valOrAlt s "lang" "NAME")) concurrency slow url
     putStrLn $ "Subtitle stream saved to \""++subtitleFile++"\"\n"
     putStrLn "Converting subtitle stream to SRT format..."
     subtitleFile' <- convert subtitleFile
@@ -153,29 +158,31 @@ getSubtitles (Stream s url Subtitle) videoFileName merge_subtitles = do
                     putStrLn $ "Merged file saved to \""++(initFileName videoFileName)++".mkv\"\n"
                 ExitFailure _ -> return ()
 
-mergeSubtitles :: [Stream] -> Stream -> String -> CLIMode -> IO ()
-mergeSubtitles ((Stream s url Subtitle):_) (Stream _ _ Video) videoFileName Auto{merge_subtitles=merge_subtitles} = getSubtitles (Stream s url Subtitle) videoFileName merge_subtitles
-mergeSubtitles ((Stream s url Subtitle):_) (Stream _ _ Video) videoFileName Interactive = do
+mergeSubtitles :: [Stream] -> Stream -> String -> CLIMode -> Int -> Bool -> IO ()
+mergeSubtitles ((Stream s url Subtitle):_) (Stream _ _ Video) videoFileName Auto{merge_subtitles=merge_subtitles} concurrency slow = getSubtitles (Stream s url Subtitle) concurrency slow videoFileName merge_subtitles
+mergeSubtitles ((Stream s url Subtitle):_) (Stream _ _ Video) videoFileName Interactive concurrency slow = do
     userMergeSubtitles <- liftM (map toLower) $ getUserLine "Merge subtitles into video file? (yes/no)"
     let merge_subtitles = case userMergeSubtitles of
                             "yes" -> True 
                             "no" -> False
                             _ -> error $ "Error: Unrecognized response: "++userMergeSubtitles
-    getSubtitles (Stream s url Subtitle) videoFileName merge_subtitles
-mergeSubtitles _ _ _ _ = return ()
+    getSubtitles (Stream s url Subtitle) concurrency slow videoFileName merge_subtitles
+mergeSubtitles _ _ _ _ _ _ = return ()
 
-saveStream :: String -> String -> IO String
-saveStream fileName stream_url = do
+saveStream :: String -> Int -> Bool -> String -> IO String
+saveStream fileName concurrency slow stream_url = do
     segInfos <- segmentUrls stream_url
     putStrLn $ (show (length segInfos))++" segments found.\n"
-    segmentFiles <- saveSegments $ map fst segInfos
+    segmentFiles <- case slow of
+                        False -> saveSegments (map fst segInfos) concurrency
+                        True -> saveSegmentsSlow (map fst segInfos)
     let savedFile = (fileName++(extension $ head segmentFiles))
     merge (zip segmentFiles $ map snd segInfos) savedFile
     currentDir <- getCurrentDirectory
     putStrLn $ "Stream saved to \""++currentDir++[pathSeparator]++savedFile++"\"\n"
     return savedFile
 
-processStream :: String -> Stream -> [Stream] -> CLIMode -> IO ()
-processStream fileName s ss cm = do
-    savedFile <- saveStream fileName (streamUrl s)
-    mergeSubtitles (filter (\s -> (streamType s) == Subtitle) ss) s savedFile cm
+processStream :: String -> Int -> Bool -> Stream -> [Stream] -> CLIMode -> IO ()
+processStream fileName concurrency slow s ss cm = do
+    savedFile <- saveStream fileName concurrency slow (streamUrl s)
+    mergeSubtitles (filter (\s -> (streamType s) == Subtitle) ss) s savedFile cm concurrency slow
