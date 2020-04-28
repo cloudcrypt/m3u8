@@ -88,11 +88,13 @@ getUrl ls (i, m) = valOrAlt m (ls !! i) "URI"
 streamsFromStr :: String -> String -> [Stream]
 streamsFromStr manifestStr url = map toStream $ zip (map snd metaPairs) urls 
     where
-        -- currBaseUrl = blah blah
         manifestLines = lines manifestStr
+        currBaseUrl = case getMetaLine "SDL-BASE-URL" manifestLines of
+            Nothing -> baseUrl url
+            Just metaLine -> snd $ splitAtFirst ':' metaLine
         metaStrPairs = filter (isMetaLine . snd) $ enumerate 1 manifestLines
         metaPairs = filter (\(i, m) -> isStreamLine m) $ map (\(i, s) -> (i, parseMeta s)) metaStrPairs
-        urls = map (fixUrl (baseUrl url)) $ map (getUrl manifestLines) metaPairs -- replace baseUrl with currBaseUrl
+        urls = map (fixUrl currBaseUrl) $ map (getUrl manifestLines) metaPairs
 
 streams :: String -> IO [Stream]
 streams path = do
@@ -104,14 +106,16 @@ streams path = do
 segmentUrlsFromStr :: String -> String -> ([(String, Maybe B.ByteString)], Maybe String)
 segmentUrlsFromStr segmentsStr segmentsUrl = ((zip urls ivs), keyUrl)
     where
-        -- currBaseUrl = blah blah
         segmentsLines = lines segmentsStr
-        urls = map (fixUrl (baseUrl segmentsUrl)) $ filter (\x -> head x /= '#') segmentsLines -- replace baseUrl with currBaseUrl
+        currBaseUrl = case getMetaLine "SDL-BASE-URL" segmentsLines of
+            Nothing -> baseUrl segmentsUrl
+            Just metaLine -> snd $ splitAtFirst ':' metaLine
+        urls = map (fixUrl currBaseUrl) $ filter (\x -> head x /= '#') segmentsLines
         keyMeta = getMeta "EXT-X-KEY" segmentsLines
         keyUrl = case keyMeta of
             Nothing -> Nothing
             Just metaMap -> case Map.lookup "URI" metaMap of
-                Just val -> Just $ fixUrl (baseUrl segmentsUrl) val -- replace baseUrl with currBaseUrl
+                Just val -> Just $ fixUrl currBaseUrl val
                 Nothing -> error "Error: EXT-X-KEY URI not found"
         ivs = case keyMeta of
             Nothing -> replicate (length urls) Nothing
