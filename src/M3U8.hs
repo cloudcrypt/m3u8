@@ -1,6 +1,6 @@
 
-module M3U8 
-    ( 
+module M3U8
+    (
         streams,
         segmentUrls,
         processStream,
@@ -29,7 +29,7 @@ import M3U8.Subtitles
 import M3U8.UI
 
 data Stream = Stream { streamMeta :: Map.Map String String
-                     , streamUrl :: String 
+                     , streamUrl :: String
                      , streamType :: StreamType } deriving (Eq)
 
 instance Show Stream where
@@ -86,7 +86,7 @@ getUrl :: [String] -> (Int, Map.Map String String) -> String
 getUrl ls (i, m) = valOrAlt m (ls !! i) "URI"
 
 streamsFromStr :: String -> String -> [Stream]
-streamsFromStr manifestStr url = map toStream $ zip (map snd metaPairs) urls 
+streamsFromStr manifestStr url = map toStream $ zip (map snd metaPairs) urls
     where
         manifestLines = lines manifestStr
         currBaseUrl = case getMetaLine "SDL-BASE-URL" manifestLines of
@@ -99,9 +99,9 @@ streamsFromStr manifestStr url = map toStream $ zip (map snd metaPairs) urls
 streams :: String -> IO [Stream]
 streams path = do
     m3u8Text <- readHttpOrPath path
-    return $ case contains "#EXT-X-PLAYLIST-TYPE" m3u8Text of
-                True -> [(Stream Map.empty path Unknown)]
-                False -> streamsFromStr m3u8Text path
+    return $ case contains "#EXT-X-STREAM-INF" m3u8Text of
+                False -> [Stream Map.empty path Unknown]
+                True -> streamsFromStr m3u8Text path
 
 segmentUrlsFromStr :: String -> String -> ([(String, Maybe B.ByteString)], Maybe String)
 segmentUrlsFromStr segmentsStr segmentsUrl = ((zip urls ivs), keyUrl)
@@ -142,6 +142,7 @@ segmentUrls url = do
 
 -- ##############################
 
+
 getSubtitles :: Stream -> Int -> Bool -> String -> Bool -> IO ()
 getSubtitles (Stream s url Subtitle) concurrency slow videoFileName merge_subtitles = do
     subtitleFile <- saveStream ((initFileName videoFileName)++"_subtitle_"++(valOrAlt s "lang" "NAME")) concurrency slow url
@@ -167,7 +168,7 @@ mergeSubtitles ((Stream s url Subtitle):_) (Stream _ _ Video) videoFileName Auto
 mergeSubtitles ((Stream s url Subtitle):_) (Stream _ _ Video) videoFileName Interactive concurrency slow = do
     userMergeSubtitles <- liftM (map toLower) $ getUserLine "Merge subtitles into video file? (yes/no)"
     let merge_subtitles = case userMergeSubtitles of
-                            "yes" -> True 
+                            "yes" -> True
                             "no" -> False
                             _ -> error $ "Error: Unrecognized response: "++userMergeSubtitles
     getSubtitles (Stream s url Subtitle) concurrency slow videoFileName merge_subtitles
